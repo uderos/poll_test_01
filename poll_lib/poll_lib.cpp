@@ -31,6 +31,60 @@ static std::string f_poll_events_to_string(const int flags)
   return oss.str();
 }
 
+eReadResult Utils::read_from_pipe_single_shot(
+    const int fd, 
+    const uint64_t timeout_ms, 
+    std::string & out_buffer) const
+{
+  const auto end_time_abs = util_clock_t::now() + ms_t(timeout_ms);
+
+  pollfd pfd;
+  memset(&pfd, 0, sizeof(pfd));
+  pfd.fd = fd;
+  pfd.events = POLLIN;
+
+  for(;;)
+  {
+    const int poll_timeout_ms = m_calculate_poll_timeout_ms(end_time_abs);
+    const int poll_rc = poll(&pfd, 1, poll_timeout_ms);
+    DBG_OUT << " poll_rc=" << poll_rc << " revents=" 
+            << f_poll_events_to_string(pfd.revents) << std::endl;
+    
+    if (poll_rc > 0)
+    {
+      if (pfd.revents & POLLIN)
+      {
+        const eReadResult read_rc = m_read_after_poll(fd, out_buffer);
+
+        return read_rc;
+      }
+      else if (pfd.revents & POLLHUP)
+      {
+        return RR_EOF;
+      }
+      else // if (pfd.revents & (POLLERR | POLLNVAL))
+      {
+        return RR_ERROR_POLL;
+      }
+    }
+    else if (poll_rc == 0) // timeout expired
+    {
+      return RR_TIMEOUT;
+    }
+    else if ((poll_rc == EINTR) || (poll_rc == EAGAIN))
+    {
+      ; // keep trying
+    }
+    else // poll_rc < 0
+    {
+      perror("poll() FAILURE: ");
+      return RR_ERROR_POLL;
+    }
+  }
+
+  return RR_SW_ERROR;
+}
+
 
 eReadResult Utils::read_from_pipe(
     const int fd, 
@@ -38,14 +92,14 @@ eReadResult Utils::read_from_pipe(
     const uint64_t timeout_ms, 
     std::string & out_buffer) const
 {
-  const auto end_time_abs = clock_t::now() + ms_t(timeout_ms);
+  const auto end_time_abs = util_clock_t::now() + ms_t(timeout_ms);
 
   pollfd pfd;
   memset(&pfd, 0, sizeof(pfd));
   pfd.fd = fd;
   pfd.events = POLLIN;
 
-  while ((clock_t::now() <= end_time_abs) && (out_buffer.size() < data_size))
+  while (out_buffer.size() < data_size)
   {
     const int poll_timeout_ms = m_calculate_poll_timeout_ms(end_time_abs);
     const int poll_rc = poll(&pfd, 1, poll_timeout_ms);
@@ -61,14 +115,18 @@ eReadResult Utils::read_from_pipe(
         if (read_rc != RR_OKAY)
           return read_rc;
       }
-      else if (pfd.revents & (POLLERR | POLLNVAL))
+      else if (pfd.revents & POLLHUP)
+      {
+        return RR_EOF;
+      }
+      else // if (pfd.revents & (POLLERR | POLLNVAL))
       {
         return RR_ERROR_POLL;
       }
     }
-    else if (poll_rc == 0) // timeoput expired
+    else if (poll_rc == 0) // timeout expired
     {
-      ; // keep trying
+      return RR_TIMEOUT;
     }
     else if ((poll_rc == EINTR) || (poll_rc == EAGAIN))
     {
@@ -83,8 +141,6 @@ eReadResult Utils::read_from_pipe(
 
   if (out_buffer.size() >= data_size)
     return RR_OKAY;
-  else if (clock_t::now() >= end_time_abs)
-    return RR_TIMEOUT;
 
   return RR_SW_ERROR;
 }
@@ -93,7 +149,7 @@ int Utils::m_calculate_poll_timeout_ms(const time_point_t & end_time_abs) const
 {
   int timeout_ms = 0;
 
-  const auto now = clock_t::now();
+  const auto now = util_clock_t::now();
   if (now < end_time_abs)
   {
     const auto remaining_time = end_time_abs - now;
