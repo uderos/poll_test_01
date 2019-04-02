@@ -10,7 +10,7 @@
 
 #include "poll_lib.h"
 
-#define DBG_OUT std::cout << __FUNCTION__ << ":" << __LINE__ << ' '
+#define DBG_OUT if (m_dbgout_enabled) std::cout << __FUNCTION__ << ":" << __LINE__ << ' '
 
 namespace udr {
 namespace poll_lib {
@@ -34,7 +34,9 @@ static std::string f_poll_events_to_string(const int flags)
   return oss.str();
 }
 
-Utils::Utils() : m_read_buffer_size(DEFAULT_READ_BUFFER_SIZE)
+Utils::Utils() : 
+  m_read_buffer_size(DEFAULT_READ_BUFFER_SIZE),
+  m_dbgout_enabled(true)
 {
 }
 
@@ -43,6 +45,20 @@ std::size_t Utils::set_read_buffer_size(const std::size_t new_size)
   const auto old_size = m_read_buffer_size;
   m_read_buffer_size = new_size;
   return old_size;
+}
+
+bool Utils::enable_dbgout()
+{
+  const auto old_value = m_dbgout_enabled;
+  m_dbgout_enabled = true;
+  return old_value;
+}
+
+bool Utils::disable_dbgout()
+{
+  const auto old_value = m_dbgout_enabled;
+  m_dbgout_enabled = false;
+  return old_value;
 }
 
 eReadResult Utils::read_single_shot(
