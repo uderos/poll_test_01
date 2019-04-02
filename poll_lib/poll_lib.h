@@ -23,8 +23,8 @@ class Utils
 
   public:
 
-    Utils() = default;
-    ~Utils() = default;
+    Utils();
+    virtual ~Utils() = default;
 
     eReadResult read_single_shot(const int fd, 
                                  const uint64_t timeout_ms, 
@@ -35,11 +35,16 @@ class Utils
                              const uint64_t timeout_ms, 
                              std::string & out_buffer) const;
 
+    std::size_t set_read_buffer_size(const std::size_t new_size);
+
   private:
 
     using util_clock_t = std::chrono::steady_clock;
     using time_point_t = std::chrono::time_point<util_clock_t>;
     using ms_t = std::chrono::milliseconds;
+
+
+    std::size_t m_read_buffer_size;
 
     int m_calculate_poll_timeout_ms(const time_point_t & end_time_abs) const;
     eReadResult m_read_after_poll(const int fd, std::string & out_buffer) const;

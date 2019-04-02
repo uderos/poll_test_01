@@ -15,6 +15,8 @@
 namespace udr {
 namespace poll_lib {
 
+static constexpr std::size_t DEFAULT_READ_BUFFER_SIZE = 4096;
+
 static std::string f_poll_events_to_string(const int flags)
 {
   std::ostringstream oss;
@@ -30,6 +32,17 @@ static std::string f_poll_events_to_string(const int flags)
   if (flags &  POLLWRBAND)        oss << " POLLWRBAND";
 
   return oss.str();
+}
+
+Utils::Utils() : m_read_buffer_size(DEFAULT_READ_BUFFER_SIZE)
+{
+}
+
+std::size_t Utils::set_read_buffer_size(const std::size_t new_size)
+{
+  const auto old_size = m_read_buffer_size;
+  m_read_buffer_size = new_size;
+  return old_size;
 }
 
 eReadResult Utils::read_single_shot(
@@ -166,10 +179,9 @@ eReadResult Utils::m_read_after_poll(const int fd,
 {
   eReadResult result = RR_OKAY;
 
-  static constexpr std::size_t BUFFSIZE = 4096;
-  auto read_buff_ptr = std::make_unique<char[]>(BUFFSIZE);
+  auto read_buff_ptr = std::make_unique<char[]>(m_read_buffer_size);
 
-  const int read_rc = read(fd, read_buff_ptr.get(), BUFFSIZE);
+  const int read_rc = read(fd, read_buff_ptr.get(), m_read_buffer_size);
   DBG_OUT << " read_rc=" << read_rc << std::endl;
 
   if (read_rc > 0)

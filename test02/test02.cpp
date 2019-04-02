@@ -31,14 +31,14 @@ using write_list_t = std::vector<write_step_t>;
 
 static void f_writer_thread(const int fd, const write_list_t write_list)
 {
-//DBG_OUT << "BEGIN" << std::endl;
+  DBG_OUT << "BEGIN" << std::endl;
 
   for (const auto & w : write_list)
   {
     std::this_thread::sleep_for(w.delta_t_ms);
     if (!w.data.empty())
     {
-//    DBG_OUT << "Writing '" << w.data << "'" << std::endl;
+      DBG_OUT << "Writing " << w.data.size() << " bytes ..." << std::endl;
       const int rc = write(fd, w.data.c_str(), w.data.size());
       if (rc < 0) 
       {
@@ -47,10 +47,79 @@ static void f_writer_thread(const int fd, const write_list_t write_list)
       }
     }
   }
-//DBG_OUT << "THE-END" << std::endl;
+  DBG_OUT << "THE-END" << std::endl;
   close(fd);
 }
 
+static void f_test_rdbuffer(const std::size_t data_size, const std::size_t rd_buffer_size)
+{
+  int pipefd[2];
+  const int pipe_rc = pipe(pipefd);
+  if (pipe_rc < 0)
+  {
+    perror("pipe() failure: ");
+    return;
+  }
+
+  std::string data;
+  data.reserve(data_size);
+  for (std::size_t i = 0; i < data_size; ++i)
+    data.push_back('0' + (i % 10));
+
+  const write_list_t write_list { { ms_t(200), data } };
+
+  std::thread writer_thread(f_writer_thread, pipefd[1], write_list);
+
+  pl::Utils utils;
+  utils.set_read_buffer_size(rd_buffer_size);
+  const uint64_t timeout_ms = 1000;
+  std::string out_buffer;
+
+  while (out_buffer.size() < data_size)
+  {
+    pl::eReadResult rc = utils.read_single_shot(pipefd[0], 
+                                                timeout_ms, 
+                                                out_buffer);
+    DBG_OUT << "Reading data - single shot"
+            << " ds=" << data_size
+            << " bs=" << rd_buffer_size
+            << " to=" << timeout_ms 
+            << " rc=" << rc
+            << " DS=" << out_buffer.size()
+            << ' ' << (out_buffer.size() < data_size ? " MISSING DATA" : " OK")
+            << std::endl;
+    }
+
+  // Cleanup before leaving
+  close(pipefd[0]);
+  // close(pipefd[1]);
+  writer_thread.join();
+}
+
+static void f_test03()
+{
+  std::cout << __FUNCTION__ << " BEGIN " << std::endl;
+
+  /*
+  {
+    const std::size_t data_size = 10;
+    const std::size_t rd_buffer_size = 20;
+    f_test_rdbuffer(data_size, rd_buffer_size);
+  }
+
+  {
+    const std::size_t data_size = 50;
+    const std::size_t rd_buffer_size = 20;
+    f_test_rdbuffer(data_size, rd_buffer_size);
+  }
+  */
+
+  {
+    const std::size_t data_size = 1024 * 1024;
+    const std::size_t rd_buffer_size = 512;
+    f_test_rdbuffer(data_size, rd_buffer_size);
+  }
+}
 
 static void f_test02()
 {
@@ -143,8 +212,9 @@ static void f_test01()
 
 int main()
 {
-  f_test01();
-  f_test02();
+  //f_test01();
+  //f_test02();
+  f_test03();
 
   return 0;
 }
