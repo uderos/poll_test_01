@@ -26,14 +26,14 @@ class Utils
     Utils() = default;
     ~Utils() = default;
 
-    eReadResult read_from_pipe_single_shot(const int fd, 
-                                           const uint64_t timeout_ms, 
-                                           std::string & out_buffer) const;
+    eReadResult read_single_shot(const int fd, 
+                                 const uint64_t timeout_ms, 
+                                 std::string & out_buffer) const;
 
-    eReadResult read_from_pipe(const int fd, 
-                               const std::uint64_t data_size,
-                               const uint64_t timeout_ms, 
-                               std::string & out_buffer) const;
+    eReadResult read_by_size(const int fd, 
+                             const std::uint64_t data_size,
+                             const uint64_t timeout_ms, 
+                             std::string & out_buffer) const;
 
   private:
 

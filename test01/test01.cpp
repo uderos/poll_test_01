@@ -138,16 +138,22 @@ static void f_test01()
   const uint64_t timeout_ms = 4000;
   std::string out_buffer;
 
-  DBG_OUT << "Reading data - size=" << data_size << " to=" << timeout_ms << " ms" << std::endl;
-  pl::eReadResult rc = utils.read_from_pipe(pipefd[0], 
-                                            data_size, 
-                                            timeout_ms, 
-                                            out_buffer);
+  DBG_OUT << "Reading data - size=" << data_size 
+          << " to=" << timeout_ms << " ms" << std::endl;
+
+  pl::eReadResult rc = utils.read_by_size(pipefd[0], 
+                                          data_size, 
+                                          timeout_ms, 
+                                          out_buffer);
   std::cout << "reading_result = " << rc
             << " data=" << out_buffer
             << std::endl;
 
+  // Cleanup before leaving
   writer_thread.join();
+  close(pipefd[0]);
+  close(pipefd[1]);
+
   DBG_OUT << __FUNCTION__ << " THE-END " << std::endl;
 }
 

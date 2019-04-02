@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream> // debug purpose only
+#include <memory>
 #include <sstream> // debug purpose only
 
 #include <poll.h>
@@ -31,7 +32,7 @@ static std::string f_poll_events_to_string(const int flags)
   return oss.str();
 }
 
-eReadResult Utils::read_from_pipe_single_shot(
+eReadResult Utils::read_single_shot(
     const int fd, 
     const uint64_t timeout_ms, 
     std::string & out_buffer) const
@@ -86,7 +87,7 @@ eReadResult Utils::read_from_pipe_single_shot(
 }
 
 
-eReadResult Utils::read_from_pipe(
+eReadResult Utils::read_by_size(
     const int fd, 
     const std::uint64_t data_size,
     const uint64_t timeout_ms, 
@@ -166,14 +167,14 @@ eReadResult Utils::m_read_after_poll(const int fd,
   eReadResult result = RR_OKAY;
 
   static constexpr std::size_t BUFFSIZE = 4096;
-  char read_buff[BUFFSIZE];
+  auto read_buff_ptr = std::make_unique<char[]>(BUFFSIZE);
 
-  const int read_rc = read(fd, read_buff, BUFFSIZE);
+  const int read_rc = read(fd, read_buff_ptr.get(), BUFFSIZE);
   DBG_OUT << " read_rc=" << read_rc << std::endl;
 
   if (read_rc > 0)
   {
-    out_buffer.append(read_buff, read_rc); 
+    out_buffer.append(read_buff_ptr.get(), read_rc); 
   }
   else if (read_rc == 0) // EOF
   {
